@@ -4,49 +4,62 @@ import torchvision.transforms as transforms
 import torch.nn as nn
 from PIL import Image
 import os
-
+import uuid
 
 app = FastAPI()
+class CNN(nn.Module):
+  def __init__(self):
+    super(CNN, self).__init__()
+    self.conv1=nn.Conv2d(  #128*128
+        in_channels=3,
+        out_channels=8,
+        kernel_size=3,
+        padding=1
+    )
+    self.conv2=nn.Conv2d(
+        in_channels=8,
+        out_channels=16,
+        kernel_size=3,
+        padding=1
+    )
+    self.conv3=nn.Conv2d(
+        in_channels=16,
+        out_channels=32,
+        kernel_size=3,
+        padding=1
+    )
+    self.conv4=nn.Conv2d(
+        in_channels=32,
+        out_channels=64,
+        kernel_size=3,
+        padding=1
+    )
+    self.pool=nn.MaxPool2d(kernel_size=2, stride=2)
 
+    self.fc1=nn.Linear(8*8*64, 128)
+    self.fc2=nn.Linear(128, 64)
+    self.fc3=nn.Linear(64, 5)
 
-class CNN(nn.Module):                         #nn.Module을 상속받아 CNN 클래스를 정의합니다. 이 클래스는 PyTorch 모델을 나타내며, 신경망 구조와 forward 연산을 정의합니다.
-    def __init__(self):                       #클래스의 생성자 메서드를 정의합니다.
-        super(CNN, self).__init__()           #부모 클래스인 nn.Module의 생성자를 호출하여 초기화합니다.
-        self.conv1 = nn.Conv2d(               #첫 번째 합성곱 층을 정의합니다.
-            in_channels=3,                          #in_channels는 입력 채널 수로 RGB 이미지의 경우 3입니다.
-            out_channels=8,                         #out_channels는 출력 채널 수로 8로 설정하고,
-            kernel_size=3,                          #커널 크기는 3x3이며,
-            padding=1)                              #패딩을 1로 설정합니다
-        self.conv2 = nn.Conv2d(               #두 번째 합성곱 층을 정의합니다.
-            in_channels=8,                          #입력 채널 수는 이전 층의 출력 채널 수인 8로 설정하고, 출력 채널 수는 16로 설정하며, 커널 크기는 3x3이며, 패딩을 1로 설정합니다.
-            out_channels=16,                        #출력 채널 수는 16로 설정하며,
-            kernel_size=3,                          #커널 크기는 3x3이며,
-            padding=1)                              #패딩을 1로 설정합니다.
-        self.pool = nn.MaxPool2d(             #대 풀링(Max Pooling) 층을 정의합니다. 커널 크기와 스트라이드를 모두 2로 설정하여 이미지를 축소합니다.
-            kernel_size=2,
-            stride=2
-        )
-        self.fc1 = nn.Linear(32 * 32 * 16, 128)     #완전 연결(fully connected) 층을 정의합니다. 입력 크기는 이전 층의 출력 크기인 32x32x16로 설정하고, 출력 크기는 128로 설정합니다.
-        self.fc2 = nn.Linear(128, 64)               #두 번째 완전 연결 층을 정의합니다. 입력 크기는 이전 층의 출력 크기인 128로 설정하고, 출력 크기는 64로 설정합니다.
-        self.fc3 = nn.Linear(64, 10)                #세 번째 완전 연결 층을 정의합니다. 입력 크기는 이전 층의 출력 크기인 64로 설정하고, 출력 크기는 클래스의 개수에 해당하는 10으로 설정합니다.
+  def forward(self, x): #[3, 128, 128]
+    x=self.conv1(x)
+    x=torch.relu(x)
+    x=self.pool(x)  #[8, 64, 64]
+    x=self.conv2(x)
+    x=torch.relu(x)
+    x=self.pool(x) #[16, 32,32]
+    x=self.conv3(x)
+    x=torch.relu(x)
+    x=self.pool(x) #[32, 16,16]
+    x=self.conv4(x)
+    x=torch.relu(x)
+    x=self.pool(x)  #[64, 8, 8]
 
-    def forward(self, x):                     #모델의 forward 연산을 정의하는 메서드입니다.
-        x = self.conv1(x)                       #입력 데이터에 첫 번째 합성곱 층을 적용합니다.
-        x = torch.relu(x)                       #ReLU 활성화 함수를 적용합니다.
-        x = self.pool(x)                        #최대 풀링 층을 적용하여 데이터를 축소합니다.
-        x = self.conv2(x)                       #두 번째 합성곱 층을 적용합니다.
-        x = torch.relu(x)                       #ReLU 활성화 함수를 적용합니다.
-        x = self.pool(x)                        #최대 풀링 층을 적용하여 데이터를 다시 축소합니다.
-
-        x = x.view(-1, 32 * 32 * 16)            #데이터를 평탄화(flatten)하여 완전 연결 층에 입력할 수 있는 형태로 변환합니다.
-        x = self.fc1(x)                         #첫 번째 완전 연결 층을 적용합니다.
-        x = torch.relu(x)                       #ReLU 활성화 함수를 적용합니다.
-        x = self.fc2(x)                         #두 번째 완전 연결 층을 적용합니다.
-        x = torch.relu(x)                       #ReLU 활성화 함수를 적용합니다.
-        x = self.fc3(x)                         #세 번째 완전 연결 층을 적용합니다.
-        x = torch.log_softmax(x, dim=1)         #출력을 로그 소프트맥스 함수를 통과시켜 클래스 확률 분포를 얻습니다.
-        return x
-
+    x=x.view(-1, 8*8*64)
+    x=self.fc1(x)
+    x=self.fc2(x)
+    x=self.fc3(x)
+    x=torch.log_softmax(x, dim=1)
+    return x
 
 
 
@@ -56,13 +69,12 @@ class CNN(nn.Module):                         #nn.Module을 상속받아 CNN 클
 @app.post("/upload")
 async def upload_image(image: UploadFile):
 
-    save_path = "uploads/"
+    save_path = "C:/imageadd/"
     with open(save_path + image.filename, "wb") as img_file:
         img_file.write(image.file.read())
 
-
     model = CNN()
-    model.load_state_dict(torch.load('model.pt'))
+    model.load_state_dict(torch.load('model_test.pt', map_location=torch.device('cpu')))
     model.eval()
 
 
@@ -90,16 +102,40 @@ async def upload_image(image: UploadFile):
     _, predicted_class = output.max(1)
     predicted_class = predicted_class.item()
 
+    percent = 0  # 초기값을 0으로 설정
+    predicted_class = -1  # 초기값을 -1로 설정 (클래스 인덱스 저장용)
 
+    # 클래스 확률 출력 및 최대 확률 계산
     for i, prob in enumerate(class_probabilities):
         print(f"Class {i}: {prob:.2f}%")
-
+        if prob > percent:  # 현재 클래스 확률이 최대 확률보다 크다면
+            percent = prob  # 최대 확률을 업데이트
+            predicted_class = i  # 예측 클래스 인덱스 업데이트
+    print("maxpercent",percent)
     print("Predicted class:", predicted_class)
 
+    # 디렉터리 내의 폴더 리스트 가져오기
+    folder_list = [folder for folder in os.listdir(save_path) if
+                   os.path.isdir(os.path.join(save_path, folder))]
 
-    os.remove(real_image_path)
+    # 결과 이미지 저장 경로 생성
+    result_save_dir = os.path.join(save_path, str(folder_list[predicted_class]))
+    os.makedirs(result_save_dir, exist_ok=True)  # 결과 폴더가 없으면 생성
 
 
+
+    # UUID 생성
+    unique_filename = str(uuid.uuid4())
+
+    # 확장자 유지 또는 변경
+    file_extension = image.filename.split(".")[-1]  # 이미지 파일 확장자 추출
+    unique_filename_with_extension = f"{unique_filename}.{file_extension}"
+
+    # 결과 이미지 저장 경로 생성
+    result_image_path = os.path.join(result_save_dir, unique_filename_with_extension)
+
+    # 이미지 파일 저장 (이름이 UUID로 변경됨)
+    os.rename(real_image_path, result_image_path)
     return predicted_class
 
 if __name__ == "__main__":
