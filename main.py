@@ -69,7 +69,7 @@ class CNN(nn.Module):
 @app.post("/upload")
 async def upload_image(image: UploadFile):
 
-    save_path = "C:/imageadd/"
+    save_path = "C:/image/land/"
     with open(save_path + image.filename, "wb") as img_file:
         img_file.write(image.file.read())
 
