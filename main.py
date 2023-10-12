@@ -94,26 +94,36 @@ async def upload_image(image: UploadFile):
     model.to(device)
     input_image = input_image.to(device)
 
-
+    # with torch.no_grad():
+    #     output = model(input_image)
+    #     probabilities = torch.softmax(output, dim=1)
+    #     class_probabilities = probabilities[0] * 100
+    #     # _, predicted_class = output.max(1)
+    #     # predicted_class = predicted_class.item()
+    #     #
+    #     # percent = 0  # 초기값을 0으로 설정
+    #     # predicted_class = -1  # 초기값을 -1로 설정 (클래스 인덱스 저장용)
+    #     #
+    #     # # 클래스 확률 출력 및 최대 확률 계산
+    #     # for i, prob in enumerate(class_probabilities):
+    #     #     print(f"Class {i}: {prob:.2f}%")
+    #     #     if prob > percent:  # 현재 클래스 확률이 최대 확률보다 크다면
+    #     #         percent = prob  # 최대 확률을 업데이트
+    #     #         predicted_class = i  # 예측 클래스 인덱스 업데이트
+    #     # print("maxpercent",percent)
+    #     # print("Predicted class:", predicted_class)
     with torch.no_grad():
         output = model(input_image)
         probabilities = torch.softmax(output, dim=1)
         class_probabilities = probabilities[0] * 100
-    _, predicted_class = output.max(1)
-    predicted_class = predicted_class.item()
 
-    percent = 0  # 초기값을 0으로 설정
-    predicted_class = -1  # 초기값을 -1로 설정 (클래스 인덱스 저장용)
+        for i, prob in enumerate(class_probabilities):
+            print(f"Class {i}: {prob:.2f}%")
 
-    # 클래스 확률 출력 및 최대 확률 계산
-    for i, prob in enumerate(class_probabilities):
-        print(f"Class {i}: {prob:.2f}%")
-        if prob > percent:  # 현재 클래스 확률이 최대 확률보다 크다면
-            percent = prob  # 최대 확률을 업데이트
-            predicted_class = i  # 예측 클래스 인덱스 업데이트
-    print("maxpercent",percent)
-    print("Predicted class:", predicted_class)
-
+    # 최대 확률 클래스를 찾기 위해 argmax를 사용합니다.
+    max_probability, predicted_class = class_probabilities.max(0)
+    print("Max Probability:", max_probability.item())
+    print("Predicted class:", predicted_class.item())
     # 디렉터리 내의 폴더 리스트 가져오기
     folder_list = [folder for folder in os.listdir(save_path) if
                    os.path.isdir(os.path.join(save_path, folder))]
@@ -136,7 +146,7 @@ async def upload_image(image: UploadFile):
 
     # 이미지 파일 저장 (이름이 UUID로 변경됨)
     os.rename(real_image_path, result_image_path)
-    return predicted_class
+    return predicted_class.item()
 
 if __name__ == "__main__":
     import uvicorn
